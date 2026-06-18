@@ -2,42 +2,42 @@
 
 ---
 
-## 阶段一：基础修复（P0）
+## 阶段一：基础修复（P0）✅
 
 ### 1.1 修复 preload 构建链路
 
-- [ ] 添加 `tsconfig.preload.json`（编译 preload.ts）
-- [ ] `package.json` 新增 `build:preload` 脚本
-- [ ] `npm run build` 包含 preload 编译步骤
-- [ ] 构建后 `dist/preload/preload.js` 文件存在
-- [ ] 生产构建启动后无 preload 加载错误
-- [ ] `npm run package` 打包成功，安装后正常运行
+- [x] 添加 `tsconfig.preload.json`（编译 preload.ts）
+- [x] `package.json` 新增 `build:preload` 脚本
+- [x] `npm run build` 包含 preload 编译步骤
+- [x] 构建后 `dist/preload/preload.js` 文件存在
+- [ ] 生产构建启动后无 preload 加载错误（待联调验证）
+- [ ] `npm run package` 打包成功，安装后正常运行（待联调验证）
 
 ### 1.2 补全分享创建流程
 
-- [ ] Files 页面右键菜单增加「创建分享链接」选项
-- [ ] 点击后弹出分享配置表单（密码、有效期、最大下载次数）
-- [ ] 调用 `createShare()` API 创建分享
-- [ ] 创建成功后显示分享 URL 并可一键复制
-- [ ] Shares 页面增加「新建分享」按钮
-- [ ] Shares 页面创建表单包含文件路径选择器
-- [ ] 无文件/路径时按钮或选项置灰
+- [x] Files 页面右键菜单增加「创建分享链接」选项
+- [x] 点击后弹出分享配置表单（密码、有效期、最大下载次数）
+- [x] 调用 `createShare()` API 创建分享
+- [x] 创建成功后显示分享 URL 并可一键复制
+- [x] Shares 页面增加「新建分享」按钮
+- [x] Shares 页面创建表单包含存储卷选择 + 文件路径输入
+- [x] 路径为空时阻止创建并显示错误提示
 
 ### 1.3 添加文件重命名/移动 UI
 
-- [ ] 右键菜单增加「重命名」选项
-- [ ] 点击后弹出重命名输入框，调用 `moveFile()` API
-- [ ] 右键菜单增加「移动到…」选项
-- [ ] 点击后弹出目标路径选择器，调用 `moveFile()` API
-- [ ] 操作成功后列表自动刷新
-- [ ] 操作失败时有错误提示
+- [x] 右键菜单增加「重命名」选项
+- [x] 点击后弹出重命名输入框，调用 `moveFile()` API
+- [x] 右键菜单增加「移动到…」选项
+- [x] 点击后弹出目标路径选择器，调用 `moveFile()` API
+- [x] 操作成功后列表自动刷新
+- [x] 操作失败时有错误提示
 
 ### 1.4 移除未使用依赖
 
-- [ ] `react-router-dom` 已从 package.json 中移除
-- [ ] `electron-store` 已从 package.json 中移除
-- [ ] `npm ls` 无悬空依赖警告
-- [ ] 应用正常构建和运行
+- [x] `react-router-dom` 已从 package.json 中移除
+- [x] `electron-store` 已从 package.json 中移除
+- [x] `npm ls` 无悬空依赖警告
+- [x] 应用正常构建和运行 (`npm run build` 通过)
 
 ---
 

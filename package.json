@@ -6,10 +6,11 @@
   "main": "dist/main/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
-    "dev:main": "tsc -p tsconfig.main.json && electron .",
+    "dev:main": "npm run build:preload && tsc -p tsconfig.main.json && electron .",
     "dev:renderer": "vite",
-    "build": "npm run build:renderer && npm run build:main",
+    "build": "npm run build:renderer && npm run build:main && npm run build:preload",
     "build:main": "tsc -p tsconfig.main.json",
+    "build:preload": "tsc -p tsconfig.preload.json",
     "build:renderer": "vite build",
     "start": "electron .",
     "package": "npm run build && electron-builder --mac --x64 --arm64",
@@ -24,7 +25,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "assets/icon.icns"
@@ -48,9 +52,7 @@
     "vite": "^5.2.12"
   },
   "dependencies": {
-    "electron-store": "^8.2.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.23.0"
+    "react-dom": "^18.3.1"
   }
 }

@@ -139,10 +139,10 @@ export async function getShares() {
   return apiFetch('/shares')
 }
 
-export async function createShare(volume: string, path: string, password?: string, expiresIn?: string) {
+export async function createShare(volume: string, path: string, password?: string, expiresIn?: string, maxDownloads?: number) {
   return apiFetch('/shares', {
     method: 'POST',
-    body: JSON.stringify({ volume, path, password, expires_in: expiresIn }),
+    body: JSON.stringify({ volume, path, password, expires_in: expiresIn, max_downloads: maxDownloads }),
   })
 }
 

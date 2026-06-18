@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { browseFiles, uploadFiles, createDirectory, deleteFile, getDownloadUrl, listVolumes } from '../api'
+import { browseFiles, uploadFiles, createDirectory, deleteFile, getDownloadUrl, listVolumes, moveFile, createShare, getServerUrl } from '../api'
 
 interface FileEntry {
   name: string
@@ -48,6 +48,11 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; entry: FileEntry } | null>(null)
+  const [shareModal, setShareModal] = useState<{ entry: FileEntry } | null>(null)
+  const [sharePassword, setSharePassword] = useState('')
+  const [shareMaxDownloads, setShareMaxDownloads] = useState('')
+  const [shareExpiresIn, setShareExpiresIn] = useState('')
+  const [shareResult, setShareResult] = useState<{ url: string } | null>(null)
 
   const loadFiles = useCallback(async () => {
     setLoading(true)
@@ -156,6 +161,52 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
     if (!confirm(`确定删除 "${entry.name}" 吗？`)) return
     try {
       await deleteFile(volume, entry.path)
+      loadFiles()
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  const handleOpenShareModal = (entry: FileEntry) => {
+    setSharePassword('')
+    setShareMaxDownloads('')
+    setShareExpiresIn('')
+    setShareResult(null)
+    setShareModal({ entry })
+  }
+
+  const handleCreateShare = async () => {
+    if (!shareModal) return
+    try {
+      const maxDownloads = shareMaxDownloads ? parseInt(shareMaxDownloads) : undefined
+      const data = await createShare(volume, shareModal.entry.path, sharePassword || undefined, shareExpiresIn || undefined, shareMaxDownloads ? parseInt(shareMaxDownloads) : undefined)
+      const url = `${getServerUrl()}/share/${data.token}`
+      setShareResult({ url })
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  const handleRename = async (entry: FileEntry) => {
+    const newName = prompt('新名称:', entry.name)
+    if (!newName || newName === entry.name) return
+    const parentPath = entry.path.substring(0, entry.path.lastIndexOf('/'))
+    const newPath = parentPath ? `${parentPath}/${newName}` : newName
+    try {
+      await moveFile(volume, entry.path, newPath)
+      loadFiles()
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  const handleMove = async (entry: FileEntry) => {
+    const newPath = prompt('目标路径 (如 other/dir):', '')
+    if (newPath === null) return
+    const name = entry.name
+    const destPath = newPath ? `${newPath}/${name}` : name
+    try {
+      await moveFile(volume, entry.path, destPath)
       loadFiles()
     } catch (err: any) {
       setError(err.message)
@@ -278,6 +329,69 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
         </div>
       )}
 
+      {shareModal && (
+        <div className="modal-overlay" onClick={() => setShareModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2 style={{ margin: '0 0 16px 0', fontSize: 16 }}>创建分享链接</h2>
+            <div className="form-group" style={{ marginBottom: 12 }}>
+              <label>文件</label>
+              <span style={{ color: 'var(--text-primary)' }}>📄 {shareModal.entry.name}</span>
+            </div>
+            {shareResult ? (
+              <div>
+                <p style={{ color: 'var(--accent)', margin: '0 0 8px 0' }}>分享链接已创建:</p>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                  <code style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-primary)', borderRadius: 6, fontSize: 12, wordBreak: 'break-all', color: 'var(--text-primary)' }}>{shareResult.url}</code>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => navigator.clipboard.writeText(shareResult.url)}
+                  >
+                    📋 复制
+                  </button>
+                </div>
+                <button className="btn btn-secondary" onClick={() => setShareModal(null)}>完成</button>
+              </div>
+            ) : (
+              <>
+                <div className="form-group" style={{ marginBottom: 12 }}>
+                  <label>密码 (可选)</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={sharePassword}
+                    onChange={e => setSharePassword(e.target.value)}
+                    placeholder="留空则无需密码访问"
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 12 }}>
+                  <label>最大下载次数 (可选)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={shareMaxDownloads}
+                    onChange={e => setShareMaxDownloads(e.target.value)}
+                    placeholder="留空则不限制"
+                    min="1"
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label>有效期 (天, 可选)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={shareExpiresIn}
+                    onChange={e => setShareExpiresIn(e.target.value)}
+                    placeholder="留空则永不过期"
+                    min="1"
+                  />
+                </div>
+                <button className="btn btn-primary" onClick={handleCreateShare}>创建分享链接</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {contextMenu && (
         <>
           <div className="context-overlay" onClick={() => setContextMenu(null)} />
@@ -290,6 +404,15 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
                 📥 下载
               </button>
             )}
+            <button onClick={() => { handleOpenShareModal(contextMenu.entry); setContextMenu(null) }}>
+              🔗 创建分享
+            </button>
+            <button onClick={() => { handleRename(contextMenu.entry); setContextMenu(null) }}>
+              ✏️ 重命名
+            </button>
+            <button onClick={() => { handleMove(contextMenu.entry); setContextMenu(null) }}>
+              📦 移动到...
+            </button>
             <button onClick={() => { handleDelete(contextMenu.entry); setContextMenu(null) }}>
               🗑️ 删除
             </button>

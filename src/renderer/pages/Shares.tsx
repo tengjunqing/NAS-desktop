@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getShares, deleteShare, getServerUrl } from '../api'
+import { getShares, deleteShare, createShare, listVolumes, getServerUrl } from '../api'
 
 interface Share {
   id: number
@@ -15,6 +15,15 @@ export default function Shares() {
   const [shares, setShares] = useState<Share[]>([])
   const [loading, setLoading] = useState(true)
   const [copiedId, setCopiedId] = useState<number | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
+  const [volumes, setVolumes] = useState<any[]>([])
+  const [createVolume, setCreateVolume] = useState('default')
+  const [createPath, setCreatePath] = useState('')
+  const [createPassword, setCreatePassword] = useState('')
+  const [createMaxDownloads, setCreateMaxDownloads] = useState('')
+  const [createExpiresIn, setCreateExpiresIn] = useState('')
+  const [createResult, setCreateResult] = useState<{ url: string } | null>(null)
+  const [createError, setCreateError] = useState('')
 
   const loadShares = () => {
     setLoading(true)
@@ -26,6 +35,7 @@ export default function Shares() {
 
   useEffect(() => {
     loadShares()
+    listVolumes().then(data => setVolumes(data || [])).catch(() => {})
   }, [])
 
   const handleDelete = async (id: number) => {
@@ -35,6 +45,39 @@ export default function Shares() {
       loadShares()
     } catch (err: any) {
       alert(err.message)
+    }
+  }
+
+  const openCreateForm = () => {
+    setCreateVolume(volumes[0]?.Name || 'default')
+    setCreatePath('')
+    setCreatePassword('')
+    setCreateMaxDownloads('')
+    setCreateExpiresIn('')
+    setCreateResult(null)
+    setCreateError('')
+    setShowCreate(true)
+  }
+
+  const handleCreateShare = async () => {
+    if (!createPath.trim()) {
+      setCreateError('请输入文件路径')
+      return
+    }
+    setCreateError('')
+    try {
+      const data = await createShare(
+        createVolume,
+        createPath.trim(),
+        createPassword || undefined,
+        createExpiresIn || undefined,
+        createMaxDownloads ? parseInt(createMaxDownloads) : undefined,
+      )
+      const url = `${getServerUrl()}/share/${data.token}`
+      setCreateResult({ url })
+      loadShares()
+    } catch (err: any) {
+      setCreateError(err.message)
     }
   }
 
@@ -49,7 +92,90 @@ export default function Shares() {
     <div className="shares-page">
       <div className="page-header">
         <h1 className="page-title">分享</h1>
+        <button className="btn btn-primary" onClick={openCreateForm}>
+          <span>🔗</span> 新建分享
+        </button>
       </div>
+
+      {showCreate && (
+        <div className="modal-overlay" onClick={() => setShowCreate(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ width: 420 }}>
+            <h2 style={{ margin: '0 0 16px 0', fontSize: 16 }}>新建分享链接</h2>
+            {createResult ? (
+              <div>
+                <p style={{ color: 'var(--accent)', margin: '0 0 8px 0' }}>分享链接已创建:</p>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                  <code style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-primary)', borderRadius: 6, fontSize: 12, wordBreak: 'break-all', color: 'var(--text-primary)' }}>{createResult.url}</code>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => navigator.clipboard.writeText(createResult.url)}
+                  >
+                    📋 复制
+                  </button>
+                </div>
+                <button className="btn btn-secondary" onClick={() => setShowCreate(false)}>完成</button>
+              </div>
+            ) : (
+              <>
+                <div className="form-group" style={{ marginBottom: 12 }}>
+                  <label>存储卷</label>
+                  <select className="volume-select" value={createVolume} onChange={e => setCreateVolume(e.target.value)}>
+                    {volumes.map((v: any) => (
+                      <option key={v.Name} value={v.Name}>{v.Name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: 12 }}>
+                  <label>文件路径</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={createPath}
+                    onChange={e => setCreatePath(e.target.value)}
+                    placeholder="例如: photos/beach.jpg"
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 12 }}>
+                  <label>密码 (可选)</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={createPassword}
+                    onChange={e => setCreatePassword(e.target.value)}
+                    placeholder="留空则无需密码访问"
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 12 }}>
+                  <label>最大下载次数 (可选)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={createMaxDownloads}
+                    onChange={e => setCreateMaxDownloads(e.target.value)}
+                    placeholder="留空则不限制"
+                    min="1"
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label>有效期 (天, 可选)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={createExpiresIn}
+                    onChange={e => setCreateExpiresIn(e.target.value)}
+                    placeholder="留空则永不过期"
+                    min="1"
+                  />
+                </div>
+                {createError && (
+                  <div className="alert alert-error" style={{ marginBottom: 12 }}>{createError}</div>
+                )}
+                <button className="btn btn-primary" onClick={handleCreateShare}>创建分享链接</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="loading-state">
