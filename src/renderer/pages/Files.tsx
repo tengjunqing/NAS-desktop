@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { browseFiles, uploadFiles, createDirectory, deleteFile, getDownloadUrl, listVolumes, moveFile, createShare, getServerUrl } from '../api'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { browseFiles, uploadFiles, createDirectory, deleteFile, getDownloadUrl, listVolumes, moveFile, createShare, getServerUrl, getStorageStats } from '../api'
 
 interface FileEntry {
   name: string
@@ -41,6 +41,41 @@ function getFileIcon(entry: FileEntry): string {
   return '📄'
 }
 
+function getThumbUrl(volume: string, filePath: string): string {
+  const token = localStorage.getItem('mynas_token') || ''
+  return `${getServerUrl()}/api/files/download/${volume}/${filePath}?view=1&token=${encodeURIComponent(token)}`
+}
+
+const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'svg']
+const VIDEO_EXTS = ['mp4', 'mkv', 'avi', 'mov', 'webm']
+const DOC_EXTS = ['pdf', 'doc', 'docx', 'txt', 'md']
+
+function FileIcon({ entry, volume }: { entry: FileEntry; volume: string }) {
+  const [imgError, setImgError] = useState(false)
+  const ext = entry.extension.toLowerCase()
+
+  if (entry.is_dir) return <>{getFileIcon(entry)}</>
+  if ((IMAGE_EXTS.includes(ext) || VIDEO_EXTS.includes(ext)) && !imgError) {
+    return (
+      <img
+        src={getThumbUrl(volume, entry.path)}
+        alt={entry.name}
+        className="file-thumb"
+        onError={() => setImgError(true)}
+      />
+    )
+  }
+  return <>{getFileIcon(entry)}</>
+}
+
+const FILE_TYPE_OPTIONS = [
+  { value: 'all', label: '全部' },
+  { value: 'image', label: '🖼️ 图片' },
+  { value: 'video', label: '🎬 视频' },
+  { value: 'document', label: '📝 文档' },
+  { value: 'other', label: '📦 其他' },
+]
+
 export default function Files({ volume, path, onNavigate }: FilesProps) {
   const [files, setFiles] = useState<FileEntry[]>([])
   const [volumes, setVolumes] = useState<any[]>([])
@@ -53,6 +88,10 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
   const [shareMaxDownloads, setShareMaxDownloads] = useState('')
   const [shareExpiresIn, setShareExpiresIn] = useState('')
   const [shareResult, setShareResult] = useState<{ url: string } | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<{ loaded: number; total: number; fileName?: string } | null>(null)
+  const [storageStats, setStorageStats] = useState<any>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [fileTypeFilter, setFileTypeFilter] = useState('all')
 
   const loadFiles = useCallback(async () => {
     setLoading(true)
@@ -84,6 +123,35 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
     loadVolumes()
   }, [loadVolumes])
 
+  useEffect(() => {
+    if (volume) {
+      getStorageStats(volume)
+        .then(data => setStorageStats(data))
+        .catch(() => setStorageStats(null))
+    }
+  }, [volume])
+
+  const filteredFiles = useMemo(() => {
+    let result = files
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter(f => f.name.toLowerCase().includes(q))
+    }
+    if (fileTypeFilter !== 'all') {
+      if (fileTypeFilter === 'image') result = result.filter(f => IMAGE_EXTS.includes(f.extension.toLowerCase()))
+      else if (fileTypeFilter === 'video') result = result.filter(f => VIDEO_EXTS.includes(f.extension.toLowerCase()))
+      else if (fileTypeFilter === 'document') result = result.filter(f => DOC_EXTS.includes(f.extension.toLowerCase()))
+      else if (fileTypeFilter === 'other') {
+        result = result.filter(f => {
+          if (f.is_dir) return false
+          const ext = f.extension.toLowerCase()
+          return !IMAGE_EXTS.includes(ext) && !VIDEO_EXTS.includes(ext) && !DOC_EXTS.includes(ext)
+        })
+      }
+    }
+    return result
+  }, [files, searchQuery, fileTypeFilter])
+
   const handleClick = (entry: FileEntry) => {
     if (entry.is_dir) {
       onNavigate(volume, entry.path)
@@ -102,14 +170,24 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
     window.open(url, '_blank')
   }
 
-  const handleUpload = async (fileList: FileList) => {
-    const filesToUpload = Array.from(fileList)
+  const doUpload = async (filesToUpload: File[], fileName?: string) => {
+    if (filesToUpload.length === 0) return
+    const totalBytes = filesToUpload.reduce((sum, f) => sum + f.size, 0)
+    setUploadProgress({ loaded: 0, total: totalBytes, fileName })
     try {
-      await uploadFiles(volume, path || '', filesToUpload)
+      await uploadFiles(volume, path || '', filesToUpload, (loaded) => {
+        setUploadProgress(prev => prev ? { ...prev, loaded } : null)
+      })
+      setUploadProgress(null)
       loadFiles()
     } catch (err: any) {
+      setUploadProgress(null)
       setError(err.message)
     }
+  }
+
+  const handleUpload = async (fileList: FileList) => {
+    await doUpload(Array.from(fileList))
   }
 
   const handleFolderUpload = async (fileList: FileList) => {
@@ -128,16 +206,13 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
         dirMap.get(dirPath)!.push(file)
       }
 
-      for (const [dirPath, files] of dirMap) {
+      for (const [dirPath, dirFiles] of dirMap) {
         const targetPath = path ? `${path}/${dirPath}` : dirPath
-
         if (dirPath) {
           await createDirectory(volume, path || '', dirPath).catch(() => {})
         }
-
-        await uploadFiles(volume, targetPath || '', files)
+        await doUpload(dirFiles, dirPath || dirFiles[0]?.name)
       }
-      loadFiles()
     } catch (err: any) {
       setError(err.message)
     }
@@ -183,7 +258,6 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
   const handleCreateShare = async () => {
     if (!shareModal) return
     try {
-      const maxDownloads = shareMaxDownloads ? parseInt(shareMaxDownloads) : undefined
       const data = await createShare(volume, shareModal.entry.path, sharePassword || undefined, shareExpiresIn || undefined, shareMaxDownloads ? parseInt(shareMaxDownloads) : undefined)
       const url = `${getServerUrl()}/share/${data.token}`
       setShareResult({ url })
@@ -224,6 +298,8 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
   }
 
   const breadcrumbs = path ? path.split('/') : []
+  const storagePct = storageStats?.total ? Math.round((storageStats.used / storageStats.total) * 100) : 0
+  const storageFull = storagePct > 90
 
   return (
     <div className="files-page">
@@ -266,6 +342,37 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
         </div>
       </div>
 
+      {storageStats && (
+        <div className={`storage-bar ${storageFull ? 'storage-full' : ''}`}>
+          <div className="storage-bar-text">
+            <span>存储空间</span>
+            <span>{formatSize(storageStats.used)} / {formatSize(storageStats.total)}</span>
+          </div>
+          <div className="storage-bar-track">
+            <div
+              className="storage-bar-fill"
+              style={{ width: `${Math.min(storagePct, 100)}%` }}
+            />
+          </div>
+          {storageFull && <div className="storage-bar-warning">⚠ 存储空间不足</div>}
+        </div>
+      )}
+
+      {uploadProgress && (
+        <div className="upload-progress">
+          <div className="upload-progress-text">
+            <span>上传中{uploadProgress.fileName ? `: ${uploadProgress.fileName}` : ''}...</span>
+            <span>{Math.round((uploadProgress.loaded / Math.max(uploadProgress.total, 1)) * 100)}%</span>
+          </div>
+          <div className="upload-progress-track">
+            <div
+              className="upload-progress-fill"
+              style={{ width: `${Math.min(Math.round((uploadProgress.loaded / Math.max(uploadProgress.total, 1)) * 100), 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="breadcrumb">
         <button className="breadcrumb-item" onClick={() => onNavigate(volume, '')}>
           {volume}
@@ -281,6 +388,31 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
             </button>
           </span>
         ))}
+      </div>
+
+      <div className="files-toolbar">
+        <div className="search-bar">
+          <span className="search-icon">🔍</span>
+          <input
+            type="text"
+            className="input search-input"
+            placeholder="搜索文件..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button className="search-clear" onClick={() => setSearchQuery('')}>✕</button>
+          )}
+        </div>
+        <select
+          className="volume-select"
+          value={fileTypeFilter}
+          onChange={e => setFileTypeFilter(e.target.value)}
+        >
+          {FILE_TYPE_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
       </div>
 
       {error && (
@@ -305,10 +437,10 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
           <div className="spinner" />
           <p>加载中...</p>
         </div>
-      ) : files.length === 0 ? (
+      ) : filteredFiles.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">📂</div>
-          <p>此文件夹为空</p>
+          <div className="empty-icon">{searchQuery || fileTypeFilter !== 'all' ? '🔍' : '📂'}</div>
+          <p>{searchQuery || fileTypeFilter !== 'all' ? '没有匹配的文件' : '此文件夹为空'}</p>
         </div>
       ) : (
         <div className="file-list">
@@ -318,14 +450,16 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
             <span className="file-col-size">大小</span>
             <span className="file-col-date">修改时间</span>
           </div>
-          {files.map((entry, i) => (
+          {filteredFiles.map((entry, i) => (
             <div
               key={i}
               className="file-item"
               onClick={() => handleClick(entry)}
               onContextMenu={e => handleContextMenu(e, entry)}
             >
-              <span className="file-col-icon">{getFileIcon(entry)}</span>
+              <span className="file-col-icon">
+                <FileIcon entry={entry} volume={volume} />
+              </span>
               <span className="file-col-name">{entry.name}</span>
               <span className="file-col-size">{entry.is_dir ? '-' : formatSize(entry.size)}</span>
               <span className="file-col-date">{formatDate(entry.mod_time)}</span>

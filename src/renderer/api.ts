@@ -79,20 +79,43 @@ export async function browseFiles(volume: string, path: string = '') {
   return apiFetch(`/files/browse/${volume}${p}`)
 }
 
-export async function uploadFiles(volume: string, path: string, files: File[]) {
-  const serverUrl = getServerUrl()
-  const token = getToken()
-  const formData = new FormData()
-  files.forEach(f => formData.append('files', f))
+export function uploadFiles(
+  volume: string,
+  path: string,
+  files: File[],
+  onProgress?: (loaded: number, total: number) => void,
+): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const serverUrl = getServerUrl()
+    const token = getToken()
+    const formData = new FormData()
+    files.forEach(f => formData.append('files', f))
 
-  const res = await fetch(`${serverUrl}/api/files/upload/${volume}/${path}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${serverUrl}/api/files/upload/${volume}/${path}`)
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(e.loaded, e.total)
+      }
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText))
+        } catch {
+          resolve({})
+        }
+      } else {
+        reject(new Error('上传失败'))
+      }
+    }
+
+    xhr.onerror = () => reject(new Error('上传失败'))
+    xhr.send(formData)
   })
-
-  if (!res.ok) throw new Error('上传失败')
-  return res.json()
 }
 
 export async function createDirectory(volume: string, path: string, name: string) {

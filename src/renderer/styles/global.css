@@ -488,6 +488,130 @@ body {
   background: var(--bg-tertiary);
 }
 
+.storage-bar {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.storage-bar-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.storage-bar-track {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.storage-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.storage-bar.storage-full .storage-bar-fill {
+  background: var(--danger);
+}
+
+.storage-bar.storage-full {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.storage-bar-warning {
+  font-size: 12px;
+  color: var(--danger);
+  margin-top: 8px;
+}
+
+.upload-progress {
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.upload-progress-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.upload-progress-track {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.15s ease;
+}
+
+.files-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.search-bar {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.search-input {
+  padding-left: 36px !important;
+  padding-right: 32px !important;
+}
+
+.search-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  line-height: 1;
+}
+
+.search-clear:hover {
+  color: var(--text-primary);
+}
+
+.file-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  object-fit: cover;
+  display: block;
+}
+
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
