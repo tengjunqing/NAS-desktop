@@ -17,11 +17,17 @@ interface DateGroup {
   count: number
 }
 
+function getPhotoDownloadUrl(photo: Photo): string {
+  const token = localStorage.getItem('mynas_token') || ''
+  const vol = photo.volume || 'default'
+  const p = photo.path.startsWith('/') ? photo.path.slice(1) : photo.path
+  return `${getServerUrl()}/api/files/download/${vol}/${p}?view=1&token=${encodeURIComponent(token)}`
+}
+
 function PhotoThumb({ photo, onClick }: { photo: Photo; onClick: () => void }) {
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(false)
-
-  const url = `${getServerUrl()}/api/files/download/${photo.volume}/${photo.path}?view=1&token=${encodeURIComponent(localStorage.getItem('mynas_token') || '')}`
+  const url = getPhotoDownloadUrl(photo)
 
   return (
     <div className="photo-item" onClick={onClick}>
@@ -39,6 +45,7 @@ function PhotoThumb({ photo, onClick }: { photo: Photo; onClick: () => void }) {
           src={url}
           alt={photo.name}
           loading="lazy"
+          crossOrigin="anonymous"
           className={loaded ? 'photo-loaded' : 'photo-loading'}
           onLoad={() => setLoaded(true)}
           onError={() => setError(true)}
@@ -46,6 +53,49 @@ function PhotoThumb({ photo, onClick }: { photo: Photo; onClick: () => void }) {
       )}
       <div className="photo-overlay">
         <span className="photo-overlay-name">{photo.name}</span>
+      </div>
+    </div>
+  )
+}
+
+function PhotoFull({ photo, onClose }: { photo: Photo; onClose: () => void }) {
+  const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState(false)
+  const url = getPhotoDownloadUrl(photo)
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal photo-modal" onClick={e => e.stopPropagation()}>
+        {!loaded && !error && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+            <div className="spinner" />
+          </div>
+        )}
+        {error ? (
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: 48 }}>🖼️</span>
+            <p style={{ marginTop: 12 }}>图片加载失败</p>
+            <button className="btn btn-secondary btn-sm" style={{ marginTop: 12 }} onClick={onClose}>关闭</button>
+          </div>
+        ) : (
+          <img
+            src={url}
+            alt={photo.name}
+            crossOrigin="anonymous"
+            className="photo-full"
+            style={{ display: loaded ? 'block' : 'none' }}
+            onLoad={() => setLoaded(true)}
+            onError={() => setError(true)}
+          />
+        )}
+        {loaded && (
+          <div className="photo-info">
+            <span className="photo-name">{photo.name}</span>
+            <span className="photo-date">
+              {new Date(photo.mod_time).toLocaleString('zh-CN')}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -74,11 +124,6 @@ export default function Photos() {
         .finally(() => setLoading(false))
     }
   }, [tab])
-
-  const getPhotoUrl = (photo: Photo) => {
-    const token = localStorage.getItem('mynas_token') || ''
-    return `${getServerUrl()}/api/files/download/${photo.volume}/${photo.path}?view=1&token=${encodeURIComponent(token)}`
-  }
 
   const isEmpty = tab === 'timeline' ? groups.length === 0 : recentPhotos.length === 0
 
@@ -146,21 +191,7 @@ export default function Photos() {
       )}
 
       {selectedPhoto && (
-        <div className="modal-overlay" onClick={() => setSelectedPhoto(null)}>
-          <div className="modal photo-modal" onClick={e => e.stopPropagation()}>
-            <img
-              src={getPhotoUrl(selectedPhoto)}
-              alt={selectedPhoto.name}
-              className="photo-full"
-            />
-            <div className="photo-info">
-              <span className="photo-name">{selectedPhoto.name}</span>
-              <span className="photo-date">
-                {new Date(selectedPhoto.mod_time).toLocaleString('zh-CN')}
-              </span>
-            </div>
-          </div>
-        </div>
+        <PhotoFull photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} />
       )}
     </div>
   )

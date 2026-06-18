@@ -18,11 +18,56 @@ function formatSize(bytes: number): string {
   return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i]
 }
 
+function getVideoUrl(video: Video): string {
+  const token = localStorage.getItem('mynas_token') || ''
+  const vol = video.volume || 'default'
+  const p = video.path.startsWith('/') ? video.path.slice(1) : video.path
+  return `${getServerUrl()}/api/files/download/${vol}/${p}?view=1&token=${encodeURIComponent(token)}`
+}
+
+function VideoPlayer({ video, onClose }: { video: Video; onClose: () => void }) {
+  const [error, setError] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.load()
+    }
+  }, [video])
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal video-modal" onClick={e => e.stopPropagation()}>
+        <div className="video-modal-header">
+          <h3>{video.name}</h3>
+          <button className="btn-close" onClick={onClose}>✕</button>
+        </div>
+        {error ? (
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: 48 }}>🎬</span>
+            <p style={{ marginTop: 12 }}>视频加载失败</p>
+          </div>
+        ) : (
+          <video
+            ref={videoRef}
+            controls
+            autoPlay
+            crossOrigin="anonymous"
+            className="video-player"
+            onError={() => setError(true)}
+          >
+            <source src={getVideoUrl(video)} type={video.mime_type || 'video/mp4'} />
+          </video>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Videos() {
   const [videos, setVideos] = useState<Video[]>([])
   const [loading, setLoading] = useState(true)
   const [playing, setPlaying] = useState<Video | null>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -31,11 +76,6 @@ export default function Videos() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
-
-  const getVideoUrl = (video: Video) => {
-    const token = localStorage.getItem('mynas_token') || ''
-    return `${getServerUrl()}/api/files/download/${video.volume}/${video.path}?view=1&token=${encodeURIComponent(token)}`
-  }
 
   return (
     <div className="videos-page">
@@ -73,21 +113,7 @@ export default function Videos() {
       )}
 
       {playing && (
-        <div className="modal-overlay" onClick={() => setPlaying(null)}>
-          <div className="modal video-modal" onClick={e => e.stopPropagation()}>
-            <div className="video-modal-header">
-              <h3>{playing.name}</h3>
-              <button className="btn-close" onClick={() => setPlaying(null)}>✕</button>
-            </div>
-            <video
-              ref={videoRef}
-              controls
-              autoPlay
-              className="video-player"
-              src={getVideoUrl(playing)}
-            />
-          </div>
-        </div>
+        <VideoPlayer video={playing} onClose={() => setPlaying(null)} />
       )}
     </div>
   )

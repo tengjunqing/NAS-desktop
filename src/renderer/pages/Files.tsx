@@ -76,6 +76,54 @@ function FileIcon({ entry, volume }: { entry: FileEntry; volume: string }) {
   return <>{getFileIcon(entry)}</>
 }
 
+function FilePreview({ entry, volume, onClose }: { entry: FileEntry; volume: string; onClose: () => void }) {
+  const ext = entry.extension.toLowerCase()
+  const isImage = IMAGE_EXTS.includes(ext)
+  const isVideo = VIDEO_EXTS.includes(ext)
+  const url = getThumbUrl(volume, entry.path)
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: isImage ? '95vw' : 500 }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{entry.name}</h3>
+          <button className="btn-close" onClick={onClose}>✕</button>
+        </div>
+        {isImage ? (
+          <img
+            src={url}
+            alt={entry.name}
+            crossOrigin="anonymous"
+            style={{ width: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 'var(--radius)' }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
+        ) : isVideo ? (
+          <video
+            controls
+            autoPlay
+            crossOrigin="anonymous"
+            style={{ width: '100%', maxHeight: '70vh', borderRadius: 'var(--radius)', background: '#000' }}
+            onError={(e) => { (e.target as HTMLVideoElement).style.display = 'none' }}
+          >
+            <source src={url} type={entry.mime_type || 'video/mp4'} />
+          </video>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+            <span style={{ fontSize: 48 }}>{getFileIcon(entry)}</span>
+            <p style={{ margin: '16px 0', fontSize: 14, color: 'var(--text-secondary)' }}>{entry.name}</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+              {formatSize(entry.size)} · {formatDate(entry.mod_time)}
+            </p>
+            <button className="btn btn-primary" onClick={() => { openUrl(url); onClose() }}>
+              📥 打开 / 下载
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 const FILE_TYPE_OPTIONS = [
   { value: 'all', label: '全部' },
   { value: 'image', label: '🖼️ 图片' },
@@ -101,6 +149,7 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [fileTypeFilter, setFileTypeFilter] = useState('all')
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
+  const [previewEntry, setPreviewEntry] = useState<FileEntry | null>(null)
 
   const loadFiles = useCallback(async () => {
     setLoading(true)
@@ -198,13 +247,8 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
     if (entry.is_dir) {
       onNavigate(volume, entry.path)
     } else {
-      handleView(entry)
+      setPreviewEntry(entry)
     }
-  }
-
-  const handleView = async (entry: FileEntry) => {
-    const url = await getDownloadUrl(volume, entry.path)
-    openUrl(url + '&view=1')
   }
 
   const handleDownload = async (entry: FileEntry) => {
@@ -627,6 +671,14 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
             </button>
           </div>
         </>
+      )}
+
+      {previewEntry && (
+        <FilePreview
+          entry={previewEntry}
+          volume={volume}
+          onClose={() => setPreviewEntry(null)}
+        />
       )}
     </div>
   )
