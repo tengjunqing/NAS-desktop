@@ -1,9 +1,19 @@
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import { useHashRoute, type Page } from '../hooks/useHashRoute'
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const { page: currentPage, navigate } = useHashRoute()
+  const [appVersion, setAppVersion] = useState('')
+
+  useEffect(() => {
+    if (window.electronAPI?.getVersion) {
+      window.electronAPI.getVersion().then(v => setAppVersion(v)).catch(() => {})
+    }
+  }, [])
 
   const navItems: { id: Page; icon: string; label: string }[] = [
     { id: 'files', icon: '📁', label: '文件' },
@@ -21,6 +31,7 @@ export default function Sidebar() {
       <div className="sidebar-logo">
         <span className="logo-icon">💾</span>
         <span>MyNAS</span>
+        {appVersion && <span className="version-tag">v{appVersion}</span>}
       </div>
 
       <nav className="sidebar-nav">
@@ -44,9 +55,14 @@ export default function Sidebar() {
             <div className="user-role">{user?.role === 'admin' ? '管理员' : '用户'}</div>
           </div>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={logout}>
-          退出登录
-        </button>
+        <div className="sidebar-actions">
+          <button className="btn btn-ghost btn-sm" onClick={toggleTheme}>
+            {theme === 'dark' ? '☀️ 亮色' : '🌙 暗色'}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={logout}>
+            退出登录
+          </button>
+        </div>
       </div>
     </aside>
   )

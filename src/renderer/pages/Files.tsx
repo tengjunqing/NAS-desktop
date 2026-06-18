@@ -50,6 +50,14 @@ const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'svg']
 const VIDEO_EXTS = ['mp4', 'mkv', 'avi', 'mov', 'webm']
 const DOC_EXTS = ['pdf', 'doc', 'docx', 'txt', 'md']
 
+function openUrl(url: string) {
+  if (window.electronAPI?.openExternal) {
+    window.electronAPI.openExternal(url)
+  } else {
+    window.open(url, '_blank')
+  }
+}
+
 function FileIcon({ entry, volume }: { entry: FileEntry; volume: string }) {
   const [imgError, setImgError] = useState(false)
   const ext = entry.extension.toLowerCase()
@@ -92,10 +100,12 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
   const [storageStats, setStorageStats] = useState<any>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [fileTypeFilter, setFileTypeFilter] = useState('all')
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
 
   const loadFiles = useCallback(async () => {
     setLoading(true)
     setError('')
+    setSelectedPaths(new Set())
     try {
       const data = await browseFiles(volume, path)
       setFiles(data.files || [])
@@ -152,6 +162,38 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
     return result
   }, [files, searchQuery, fileTypeFilter])
 
+  const toggleSelect = (entryPath: string) => {
+    setSelectedPaths(prev => {
+      const next = new Set(prev)
+      if (next.has(entryPath)) next.delete(entryPath)
+      else next.add(entryPath)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    setSelectedPaths(prev => {
+      const selectable = filteredFiles.filter(f => !f.is_dir)
+      if (selectable.length === prev.size) return new Set()
+      return new Set(selectable.map(f => f.path))
+    })
+  }
+
+  const handleBatchDelete = async () => {
+    if (selectedPaths.size === 0) return
+    if (!confirm(`确定删除选中的 ${selectedPaths.size} 个文件吗？`)) return
+    let failed = 0
+    for (const filePath of selectedPaths) {
+      try {
+        await deleteFile(volume, filePath)
+      } catch {
+        failed++
+      }
+    }
+    if (failed > 0) setError(`${failed} 个文件删除失败`)
+    loadFiles()
+  }
+
   const handleClick = (entry: FileEntry) => {
     if (entry.is_dir) {
       onNavigate(volume, entry.path)
@@ -162,12 +204,12 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
 
   const handleView = async (entry: FileEntry) => {
     const url = await getDownloadUrl(volume, entry.path)
-    window.open(url + '&view=1', '_blank')
+    openUrl(url + '&view=1')
   }
 
   const handleDownload = async (entry: FileEntry) => {
     const url = await getDownloadUrl(volume, entry.path)
-    window.open(url, '_blank')
+    openUrl(url)
   }
 
   const doUpload = async (filesToUpload: File[], fileName?: string) => {
@@ -300,6 +342,8 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
   const breadcrumbs = path ? path.split('/') : []
   const storagePct = storageStats?.total ? Math.round((storageStats.used / storageStats.total) * 100) : 0
   const storageFull = storagePct > 90
+  const selectableFiles = filteredFiles.filter(f => !f.is_dir)
+  const allSelected = selectableFiles.length > 0 && selectedPaths.size === selectableFiles.length
 
   return (
     <div className="files-page">
@@ -415,6 +459,18 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
         </select>
       </div>
 
+      {selectedPaths.size > 0 && (
+        <div className="batch-toolbar">
+          <span>已选 {selectedPaths.size} 项</span>
+          <button className="btn btn-danger btn-sm" onClick={handleBatchDelete}>
+            🗑️ 批量删除
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setSelectedPaths(new Set())}>
+            取消选择
+          </button>
+        </div>
+      )}
+
       {error && (
         <div className="alert alert-error">
           {error}
@@ -445,6 +501,13 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
       ) : (
         <div className="file-list">
           <div className="file-list-header">
+            <span className="file-col-check">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleSelectAll}
+              />
+            </span>
             <span className="file-col-icon"></span>
             <span className="file-col-name">名称</span>
             <span className="file-col-size">大小</span>
@@ -453,16 +516,23 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
           {filteredFiles.map((entry, i) => (
             <div
               key={i}
-              className="file-item"
-              onClick={() => handleClick(entry)}
-              onContextMenu={e => handleContextMenu(e, entry)}
+              className={`file-item ${selectedPaths.has(entry.path) ? 'file-item-selected' : ''}`}
             >
-              <span className="file-col-icon">
+              <span className="file-col-check" onClick={e => e.stopPropagation()}>
+                {!entry.is_dir && (
+                  <input
+                    type="checkbox"
+                    checked={selectedPaths.has(entry.path)}
+                    onChange={() => toggleSelect(entry.path)}
+                  />
+                )}
+              </span>
+              <span className="file-col-icon" onClick={() => handleClick(entry)} onContextMenu={e => handleContextMenu(e, entry)}>
                 <FileIcon entry={entry} volume={volume} />
               </span>
-              <span className="file-col-name">{entry.name}</span>
-              <span className="file-col-size">{entry.is_dir ? '-' : formatSize(entry.size)}</span>
-              <span className="file-col-date">{formatDate(entry.mod_time)}</span>
+              <span className="file-col-name" onClick={() => handleClick(entry)} onContextMenu={e => handleContextMenu(e, entry)}>{entry.name}</span>
+              <span className="file-col-size" onClick={() => handleClick(entry)} onContextMenu={e => handleContextMenu(e, entry)}>{entry.is_dir ? '-' : formatSize(entry.size)}</span>
+              <span className="file-col-date" onClick={() => handleClick(entry)} onContextMenu={e => handleContextMenu(e, entry)}>{formatDate(entry.mod_time)}</span>
             </div>
           ))}
         </div>

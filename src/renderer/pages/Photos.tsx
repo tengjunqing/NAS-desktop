@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getPhotoTimeline, getServerUrl } from '../api'
+import { getPhotoTimeline, getRecentPhotos, getServerUrl } from '../api'
 
 interface Photo {
   name: string
@@ -51,28 +51,55 @@ function PhotoThumb({ photo, onClick }: { photo: Photo; onClick: () => void }) {
   )
 }
 
+type PhotoTab = 'recent' | 'timeline'
+
 export default function Photos() {
+  const [tab, setTab] = useState<PhotoTab>('timeline')
   const [groups, setGroups] = useState<DateGroup[]>([])
+  const [recentPhotos, setRecentPhotos] = useState<Photo[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null)
 
   useEffect(() => {
     setLoading(true)
-    getPhotoTimeline()
-      .then(data => setGroups(data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
+    if (tab === 'timeline') {
+      getPhotoTimeline()
+        .then(data => setGroups(data || []))
+        .catch(() => {})
+        .finally(() => setLoading(false))
+    } else {
+      getRecentPhotos()
+        .then(data => setRecentPhotos(data?.photos || data || []))
+        .catch(() => {})
+        .finally(() => setLoading(false))
+    }
+  }, [tab])
 
   const getPhotoUrl = (photo: Photo) => {
     const token = localStorage.getItem('mynas_token') || ''
     return `${getServerUrl()}/api/files/download/${photo.volume}/${photo.path}?view=1&token=${encodeURIComponent(token)}`
   }
 
+  const isEmpty = tab === 'timeline' ? groups.length === 0 : recentPhotos.length === 0
+
   return (
     <div className="photos-page">
       <div className="page-header">
         <h1 className="page-title">照片</h1>
+        <div className="photo-tabs">
+          <button
+            className={`btn ${tab === 'recent' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+            onClick={() => setTab('recent')}
+          >
+            最近
+          </button>
+          <button
+            className={`btn ${tab === 'timeline' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+            onClick={() => setTab('timeline')}
+          >
+            时间线
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -80,11 +107,21 @@ export default function Photos() {
           <div className="spinner" />
           <p>加载中...</p>
         </div>
-      ) : groups.length === 0 ? (
+      ) : isEmpty ? (
         <div className="empty-state">
           <div className="empty-icon">📷</div>
           <p>暂无照片</p>
           <p className="empty-hint">上传照片后将在此显示</p>
+        </div>
+      ) : tab === 'recent' ? (
+        <div className="photo-grid">
+          {recentPhotos.map((photo, i) => (
+            <PhotoThumb
+              key={i}
+              photo={photo}
+              onClick={() => setSelectedPhoto(photo)}
+            />
+          ))}
         </div>
       ) : (
         <div className="photo-timeline">
