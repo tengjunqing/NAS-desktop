@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useAuth } from './context/AuthContext'
+import { useHashRoute } from './hooks/useHashRoute'
 import Sidebar from './components/Sidebar'
 import Login from './pages/Login'
 import Files from './pages/Files'
@@ -6,51 +7,27 @@ import Photos from './pages/Photos'
 import Videos from './pages/Videos'
 import Shares from './pages/Shares'
 import Admin from './pages/Admin'
-import { getToken, getMe, clearAuth } from './api'
+import { useState } from 'react'
 
-type Page = 'files' | 'photos' | 'videos' | 'shares' | 'admin'
+const ADMIN_PAGE = 'admin'
 
 function App() {
-  const [token, setToken] = useState<string | null>(getToken())
-  const [user, setUser] = useState<any>(null)
-  const [currentPage, setCurrentPage] = useState<Page>('files')
+  const { token, user } = useAuth()
+  const { page, navigate } = useHashRoute()
   const [selectedVolume, setSelectedVolume] = useState('default')
   const [selectedPath, setSelectedPath] = useState('')
 
-  useEffect(() => {
-    if (token) {
-      getMe()
-        .then(data => setUser(data))
-        .catch(() => {
-          clearAuth()
-          setToken(null)
-        })
-    }
-  }, [token])
-
-  const handleLogin = (newToken: string) => {
-    setToken(newToken)
-  }
-
-  const handleLogout = () => {
-    clearAuth()
-    setToken(null)
-    setUser(null)
-  }
-
-  const handleNavigate = (page: Page) => {
-    setCurrentPage(page)
-    if (page === 'files') {
-      setSelectedPath('')
-    }
-  }
-
   if (!token || !user) {
-    return <Login onLogin={handleLogin} />
+    return <Login />
+  }
+
+  if (page === ADMIN_PAGE && user.role !== ADMIN_PAGE) {
+    navigate('files')
+    return null
   }
 
   const renderPage = () => {
-    switch (currentPage) {
+    switch (page) {
       case 'files':
         return (
           <Files
@@ -69,7 +46,7 @@ function App() {
       case 'shares':
         return <Shares />
       case 'admin':
-        return <Admin user={user} />
+        return <Admin />
       default:
         return <Files volume={selectedVolume} path={selectedPath} onNavigate={() => {}} />
     }
@@ -78,12 +55,7 @@ function App() {
   return (
     <div className="app-layout">
       <div className="titlebar-drag" />
-      <Sidebar
-        user={user}
-        currentPage={currentPage}
-        onNavigate={handleNavigate}
-        onLogout={handleLogout}
-      />
+      <Sidebar />
       <main className="main-content">
         {renderPage()}
       </main>

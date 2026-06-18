@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import { login } from '../api'
+import { useAuth } from '../context/AuthContext'
 
-interface LoginProps {
-  onLogin: (token: string) => void
-}
-
-export default function Login({ onLogin }: LoginProps) {
+export default function Login() {
+  const { login: handleLogin } = useAuth()
   const [serverUrl, setServerUrl] = useState(localStorage.getItem('mynas_server_url') || 'http://localhost:8080')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -19,7 +17,7 @@ export default function Login({ onLogin }: LoginProps) {
 
     try {
       const data = await login(serverUrl, username, password)
-      onLogin(data.access_token)
+      handleLogin(data.access_token)
     } catch (err: any) {
       setError(err.message || '登录失败')
     } finally {

@@ -22,35 +22,56 @@ export function clearAuth(): void {
 }
 
 async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
+  return apiFetchWithRetry(path, options, 0)
+}
+
+async function apiFetchWithRetry(path: string, options: RequestInit, retryCount: number): Promise<any> {
   const serverUrl = getServerUrl()
   const token = getToken()
-  
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
   }
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const res = await fetch(`${serverUrl}/api${path}`, {
-    ...options,
-    headers,
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000)
 
-  if (res.status === 401) {
-    clearAuth()
-    window.location.reload()
-    throw new Error('Session expired')
+  try {
+    const res = await fetch(`${serverUrl}/api${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    })
+
+    if (res.status === 401) {
+      clearAuth()
+      window.location.reload()
+      throw new Error('Session expired')
+    }
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: res.statusText }))
+      throw new Error(error.error || res.statusText)
+    }
+
+    return res.json()
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw new Error('请求超时')
+    }
+    if (retryCount < 2 && err.message !== 'Session expired') {
+      await new Promise(r => setTimeout(r, Math.pow(2, retryCount) * 1000))
+      return apiFetchWithRetry(path, options, retryCount + 1)
+    }
+    throw err
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(error.error || res.statusText)
-  }
-
-  return res.json()
 }
 
 export async function login(serverUrl: string, username: string, password: string) {

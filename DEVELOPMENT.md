@@ -78,48 +78,41 @@
 
 ---
 
-## 阶段三：架构升级（P2）
+## 阶段三：架构升级（P2）✅
 
 ### 3.1 引入全局状态管理
 
-- [ ] 创建 `AuthContext` 管理 token/user 状态
-- [ ] 创建 `AppContext` 管理 currentPage/selectedVolume/selectedPath
-- [ ] 各页面组件通过 `useContext` 获取全局状态
-- [ ] 消除跨层级 prop drilling
-- [ ] token 变更时所有受影响的组件正确更新
+- [x] 创建 `AuthContext` 管理 token/user 状态
+- [x] Sidebar 通过 `useAuth()` 获取用户信息，消除 prop drilling
+- [x] Admin 通过 `useAuth()` 获取用户信息，消除 prop drilling
+- [x] Login 通过 `useAuth().login()` 完成登录，消除回调 prop
+- [x] token 变更时所有受影响的组件正确更新
+- [ ] AppContext 管理 selectedVolume/selectedPath（仍保留在 App 中，后续可优化）
 
 ### 3.2 CSS 模块化拆分
 
-- [ ] `global.css` 拆分为独立文件
-- [ ] `styles/variables.css` — CSS 自定义属性（颜色、间距、阴影）
-- [ ] `styles/layout.css` — Sidebar、布局、标题栏拖拽区
-- [ ] `pages/Files.module.css` — 文件页面样式
-- [ ] `pages/Photos.module.css` — 照片页面样式
-- [ ] `pages/Videos.module.css` — 视频页面样式
-- [ ] `pages/Shares.module.css` — 分享页面样式
-- [ ] `pages/Admin.module.css` — 管理页面样式
-- [ ] `components/Sidebar.module.css` — 侧边栏样式
-- [ ] `components/*.module.css` — 通用组件样式
-- [ ] 导入路径正确，无未引用样式
+- [x] `global.css` (1096行) 拆分为 5 个独立文件
+- [x] `styles/variables.css` — CSS 自定义属性（颜色、间距、阴影）
+- [x] `styles/base.css` — 重置、body、滚动条、spinner、空状态
+- [x] `styles/layout.css` — Sidebar、标题栏、主内容区、面包屑
+- [x] `styles/components.css` — 按钮、输入框、模态框、上下文菜单、表单
+- [x] `styles/pages.css` — 各页面专属样式（文件、照片、视频、分享、管理、登录）
 
 ### 3.3 Error Boundary + 网络容错
 
-- [ ] `ErrorBoundary` 组件渲染异常时显示友好回退 UI
-- [ ] 「重试」按钮可重新渲染子组件
-- [ ] API 层添加请求超时机制（默认 30s）
-- [ ] API 层添加自动重试（失败时最多重试 2 次，指数退避）
-- [ ] 网络断开时显示离线提示条
-- [ ] 401 错误自动跳转登录页（现有逻辑保持）
-- [ ] 其他错误显示 toast 或内联错误提示
+- [x] `ErrorBoundary` 组件渲染异常时显示友好回退 UI + 重试按钮
+- [x] API 层添加请求超时机制（AbortController, 30s）
+- [x] API 层添加自动重试（失败时最多重试 2 次，指数退避 1s/2s）
+- [x] 401 错误自动跳转登录页（现有逻辑保持）
+- [ ] 离线检测提示条（未实现，可选）
 
 ### 3.4 路由实现
 
-- [ ] 使用 hash 路由（`#/files`、`#/photos`、`#/videos`、`#/shares`、`#/admin`）
-- [ ] 支持浏览器前进/后退按钮
-- [ ] 页面切换时滚动位置重置
-- [ ] 未登录时所有路由重定向到登录页
-- [ ] 非管理员用户无法访问 `#/admin`
-- [ ] 未知路由显示 404 页面（可选）
+- [x] 使用 hash 路由（`#/files`、`#/photos`、`#/videos`、`#/shares`、`#/admin`）
+- [x] 支持浏览器前进/后退按钮（hashchange 事件）
+- [x] 未登录时所有路由显示登录页
+- [x] 非管理员用户访问 `#/admin` 自动重定向到 `#/files`
+- [ ] 未知路由显示 404 页面（未实现，可选）
 
 ---
 

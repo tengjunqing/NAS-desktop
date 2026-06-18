@@ -1,17 +1,14 @@
 import { useState, useEffect } from 'react'
 import { listUsers, createUser, deleteUser } from '../api'
+import { useAuth } from '../context/AuthContext'
 
-interface User {
+interface UserRow {
   id: number
   username: string
   role: string
   quota_bytes: number
   used_bytes: number
   created_at: string
-}
-
-interface AdminProps {
-  user: { id: number; username: string; role: string }
 }
 
 function formatSize(bytes: number): string {
@@ -21,8 +18,9 @@ function formatSize(bytes: number): string {
   return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i]
 }
 
-export default function Admin({ user }: AdminProps) {
-  const [users, setUsers] = useState<User[]>([])
+export default function Admin() {
+  const { user } = useAuth()
+  const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [newUsername, setNewUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -56,7 +54,7 @@ export default function Admin({ user }: AdminProps) {
   }
 
   const handleDeleteUser = async (id: number) => {
-    if (id === user.id) {
+    if (id === user?.id) {
       alert('不能删除自己')
       return
     }
@@ -136,7 +134,7 @@ export default function Admin({ user }: AdminProps) {
                   {new Date(u.created_at).toLocaleDateString('zh-CN')}
                 </span>
                 <span className="col-actions">
-                  {u.id !== user.id && (
+                  {u.id !== user?.id && (
                     <button
                       className="btn btn-danger btn-sm"
                       onClick={() => handleDeleteUser(u.id)}
