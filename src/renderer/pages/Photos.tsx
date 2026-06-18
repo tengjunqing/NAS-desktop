@@ -17,6 +17,40 @@ interface DateGroup {
   count: number
 }
 
+function PhotoThumb({ photo, onClick }: { photo: Photo; onClick: () => void }) {
+  const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState(false)
+
+  const url = `${getServerUrl()}/api/files/download/${photo.volume}/${photo.path}?view=1&token=${encodeURIComponent(localStorage.getItem('mynas_token') || '')}`
+
+  return (
+    <div className="photo-item" onClick={onClick}>
+      {!loaded && !error && (
+        <div className="photo-placeholder">
+          <div className="spinner" />
+        </div>
+      )}
+      {error ? (
+        <div className="photo-placeholder">
+          <span className="photo-error-icon">🖼️</span>
+        </div>
+      ) : (
+        <img
+          src={url}
+          alt={photo.name}
+          loading="lazy"
+          className={loaded ? 'photo-loaded' : 'photo-loading'}
+          onLoad={() => setLoaded(true)}
+          onError={() => setError(true)}
+        />
+      )}
+      <div className="photo-overlay">
+        <span className="photo-overlay-name">{photo.name}</span>
+      </div>
+    </div>
+  )
+}
+
 export default function Photos() {
   const [groups, setGroups] = useState<DateGroup[]>([])
   const [loading, setLoading] = useState(true)
@@ -62,17 +96,11 @@ export default function Photos() {
               </div>
               <div className="photo-grid">
                 {group.photos.map((photo, i) => (
-                  <div
+                  <PhotoThumb
                     key={i}
-                    className="photo-item"
+                    photo={photo}
                     onClick={() => setSelectedPhoto(photo)}
-                  >
-                    <img
-                      src={getPhotoUrl(photo)}
-                      alt={photo.name}
-                      loading="lazy"
-                    />
-                  </div>
+                  />
                 ))}
               </div>
             </div>

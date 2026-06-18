@@ -510,8 +510,60 @@ body {
   transition: transform 0.2s ease;
 }
 
+.photo-item img.photo-loading {
+  opacity: 0;
+}
+
+.photo-item img.photo-loaded {
+  opacity: 1;
+}
+
 .photo-item:hover img {
   transform: scale(1.05);
+}
+
+.photo-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+}
+
+.photo-placeholder .spinner {
+  width: 24px;
+  height: 24px;
+  border-width: 2px;
+  margin: 0;
+}
+
+.photo-error-icon {
+  font-size: 32px;
+  opacity: 0.4;
+}
+
+.photo-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.photo-item:hover .photo-overlay {
+  opacity: 1;
+}
+
+.photo-overlay-name {
+  color: #fff;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .photo-group {

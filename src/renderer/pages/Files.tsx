@@ -88,8 +88,13 @@ export default function Files({ volume, path, onNavigate }: FilesProps) {
     if (entry.is_dir) {
       onNavigate(volume, entry.path)
     } else {
-      handleDownload(entry)
+      handleView(entry)
     }
+  }
+
+  const handleView = async (entry: FileEntry) => {
+    const url = await getDownloadUrl(volume, entry.path)
+    window.open(url + '&view=1', '_blank')
   }
 
   const handleDownload = async (entry: FileEntry) => {
